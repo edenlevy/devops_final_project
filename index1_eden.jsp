@@ -1,139 +1,193 @@
-<%@ page import = "java.util.*" %><?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html 
-    PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"> 
-<head>
-    <meta http-equiv="Content-Type" content='text/html; charset=UTF-8'/>
-    <meta http-equiv="Content-Style-Type" content="text/css"/>
-    <link rel="stylesheet" media="screen" type="text/css" title="Preferred" href="number-guess.css"/>
-    <title>JSP Number Guess</title>
-</head>
-<body>
-
-    <h1>JSP Number Guess</h1>
-
-    <div class='content'>
-<%
-//  Initialize.
-
-    final HttpSession       Sess = request.getSession();
-    final boolean           JustStarted = Sess.isNew();
-    final Integer           No;
-    final ArrayList         Hist;
-
-    if (JustStarted) {
-
-        No = new Integer(new java.util.Random().nextInt(101));
-        Hist = new ArrayList();
-
-        Sess.setAttribute("no", No);
-        Sess.setAttribute("hist", Hist);
-
-    } else {
-
-        No = (Integer) Sess.getAttribute("no");
-        Hist = (ArrayList) Sess.getAttribute("hist");
-    }
-
-//  Process the input.
-
-    final String            GuessStr = request.getParameter("guess");
-    String                  GuessErrorMsg = null;
-    int                     Guess = -1;
-
-    if (!JustStarted) {
-
-        if (GuessStr != null && GuessStr.length() != 0) {
-
-            try {
-
-                Guess = Integer.parseInt(GuessStr);
-                if (Guess < 0 || Guess > 100)
-                    GuessErrorMsg = "The guess must be in the range 0 to 100 (inclusive). " + 
-                        "The number \"" + Guess + "\" is not in that range.";
-                else
-                    Hist.add(new Integer(Guess));
-
-            } catch (NumberFormatException e) {
-                GuessErrorMsg = "The guess \"" + GuessStr + "\" is not a number.";
-            }
-
-        } else
-            GuessErrorMsg = "The guess should be a number, but is blank.";
-    }
-
-//  Produce the dynamic portions of the web page.
-
-    if (Guess != No.intValue()) {
-%>
-        <div class='guess'>
-            <p>A random number between 0 and 100 (inclusive) has been selected.</p>
-<%
-        if (GuessErrorMsg != null) {
-%>
-            <div class='bad-field-error-message'><%= GuessErrorMsg %></div>
-<%
-        }
-%>
-            <form method='post'>
-                <label <%= GuessErrorMsg != null ? "class='bad-field'" : "" %> >Guess the number: 
-                    <input type='text' size='6' name='guess' 
-                    <%= GuessErrorMsg != null ? "value='" + GuessStr + "'" : "" %> />
-                </label>
-                <input type='submit' value='Guess'/>
-            </form>
+<%--@elvariable id="action" type="java.lang.String"--%>
+<%--@elvariable id="gameId" type="long"--%>
+<%--@elvariable id="username" type="java.lang.String"--%>
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Game Site :: Tic Tac Toe</title>
+        <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.1/css/bootstrap.min.css" />
+        <link rel="stylesheet"
+              href="<c:url value="/resource/stylesheet/ticTacToe.css" />" />
+        <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+        <script src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.1/js/bootstrap.min.js"></script>
+    </head>
+    <body>
+        <h2>Tic Tac Toe</h2>
+        <span class="player-label">You:</span> ${username}<br />
+        <span class="player-label">Opponent:</span>
+        <span id="opponent"><i>Waiting</i></span>
+        <div id="status">&nbsp;</div>
+        <div id="gameContainer">
+            <div class="row">
+                <div id="r0c0" class="game-cell" onclick="move(0, 0);">&nbsp;</div>
+                <div id="r0c1" class="game-cell" onclick="move(0, 1);">&nbsp;</div>
+                <div id="r0c2" class="game-cell" onclick="move(0, 2);">&nbsp;</div>
+            </div>
+            <div class="row">
+                <div id="r1c0" class="game-cell" onclick="move(1, 0);">&nbsp;</div>
+                <div id="r1c1" class="game-cell" onclick="move(1, 1);">&nbsp;</div>
+                <div id="r1c2" class="game-cell" onclick="move(1, 2);">&nbsp;</div>
+            </div>
+            <div class="row">
+                <div id="r2c0" class="game-cell" onclick="move(2, 0);">&nbsp;</div>
+                <div id="r2c1" class="game-cell" onclick="move(2, 1);">&nbsp;</div>
+                <div id="r2c2" class="game-cell" onclick="move(2, 2);">&nbsp;</div>
+            </div>
         </div>
-<%
-    } else {
-
-        Sess.invalidate();  //  Destroy this session. We're done.
-%>
-        <div class='done'>
-            <p>Correct! The number was <%= No %>. 
-            You guessed it in <%= Hist.size() %> attempts.</p>
-
-            <form method='post'>
-                <input type='submit' value='Play Again'/>
-            </form>
+        <div id="modalWaiting" class="modal hide fade">
+            <div class="modal-header"><h3>Please Wait...</h3></div>
+            <div class="modal-body" id="modalWaitingBody">&nbsp;</div>
         </div>
-<%
-    }
-
-    if (Hist.size() > 0) {
-%>
-        <div class='history'>
-            <table class='history'>
-                <thead>
-                    <tr>
-                        <th>No.</th> <th>Guess</th> <th>Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-<%
-        for (int Index = Hist.size() - 1; Index >= 0; Index--) {
-            final Integer           PrevGuess = (Integer) Hist.get(Index);
-            final int               Relationship = PrevGuess.compareTo(No);
-            String                  Result = "Correct!";
-
-            if (Relationship < 0)
-                Result = "Too Low";
-            else if (Relationship > 0)
-                Result = "Too High";
-%>
-                    <tr>
-                        <td><%= Index + 1 %></td> <td><%= PrevGuess %></td> <td class='result'><%= Result %></td>
-                    </tr>
-<%
-        }
-%>
-                </tbody>
-            </table>
+        <div id="modalError" class="modal hide fade">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;
+                </button>
+                <h3>Error</h3>
+            </div>
+            <div class="modal-body" id="modalErrorBody">A blah error occurred.
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
         </div>
-<%
-    }
-%>
-    </div>
-
-</body>
+        <div id="modalGameOver" class="modal hide fade">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;
+                </button>
+                <h3>Game Over</h3>
+            </div>
+            <div class="modal-body" id="modalGameOverBody">&nbsp;</div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
+        </div>
+        <script type="text/javascript" language="javascript">
+            var move;
+            $(document).ready(function() {
+                var modalError = $("#modalError");
+                var modalErrorBody = $("#modalErrorBody");
+                var modalWaiting = $("#modalWaiting");
+                var modalWaitingBody = $("#modalWaitingBody");
+                var modalGameOver = $("#modalGameOver");
+                var modalGameOverBody = $("#modalGameOverBody");
+                var opponent = $("#opponent");
+                var status = $("#status");
+                var opponentUsername;
+                var username = '<c:out value="${username}" />';
+                var myTurn = false;
+                $('.game-cell').addClass('span1');
+                if(!("WebSocket" in window))
+                {
+                    modalErrorBody.text('WebSockets are not supported in this ' +
+                            'browser. Try Internet Explorer 10 or the latest ' +
+                            'versions of Mozilla Firefox or Google Chrome.');
+                    modalError.modal('show');
+                    return;
+                }
+                modalWaitingBody.text('Connecting to the server.');
+                modalWaiting.modal({ keyboard: false, show: true });
+                var server;
+                try {
+                    server = new WebSocket('ws://' + window.location.host +
+                            '<c:url value="/ticTacToe/${gameId}/${username}">
+                                <c:param name="action" value="${action}" />
+                            </c:url>');
+                } catch(error) {
+                    modalWaiting.modal('hide');
+                    modalErrorBody.text(error);
+                    modalError.modal('show');
+                    return;
+                }
+                server.onopen = function(event) {
+                    modalWaitingBody
+                            .text('Waiting on your opponent to join the game.');
+                    modalWaiting.modal({ keyboard: false, show: true });
+                };
+                window.onbeforeunload = function() {
+                    server.close();
+                };
+                server.onclose = function(event) {
+                    if(!event.wasClean || event.code != 1000) {
+                        toggleTurn(false, 'Game over due to error!');
+                        modalWaiting.modal('hide');
+                        modalErrorBody.text('Code ' + event.code + ': ' +
+                                event.reason);
+                        modalError.modal('show');
+                    }
+                };
+                server.onerror = function(event) {
+                    modalWaiting.modal('hide');
+                    modalErrorBody.text(event.data);
+                    modalError.modal('show');
+                };
+                server.onmessage = function(event) {
+                    var message = JSON.parse(event.data);
+                    if(message.action == 'gameStarted') {
+                        if(message.game.player1 == username)
+                            opponentUsername = message.game.player2;
+                        else
+                            opponentUsername = message.game.player1;
+                        opponent.text(opponentUsername);
+                        toggleTurn(message.game.nextMoveBy == username);
+                        modalWaiting.modal('hide');
+                    } else if(message.action == 'opponentMadeMove') {
+                        $('#r' + message.move.row + 'c' + message.move.column)
+                                .unbind('click')
+                                .removeClass('game-cell-selectable')
+                                .addClass('game-cell-opponent game-cell-taken');
+                        toggleTurn(true);
+                    } else if(message.action == 'gameOver') {
+                        toggleTurn(false, 'Game Over!');
+                        if(message.winner) {
+                            modalGameOverBody.text('Congratulations, you won!');
+                        } else {
+                            modalGameOverBody.text('User "' + opponentUsername +
+                                    '" won the game.');
+                        }
+                        modalGameOver.modal('show');
+                    } else if(message.action == 'gameIsDraw') {
+                        toggleTurn(false, 'The game is a draw. ' +
+                                'There is no winner.');
+                        modalGameOverBody.text('The game ended in a draw. ' +
+                                'Nobody wins!');
+                        modalGameOver.modal('show');
+                    } else if(message.action == 'gameForfeited') {
+                        toggleTurn(false, 'Your opponent forfeited!');
+                        modalGameOverBody.text('User "' + opponentUsername +
+                                '" forfeited the game. You win!');
+                        modalGameOver.modal('show');
+                    }
+                };
+                var toggleTurn = function(isMyTurn, message) {
+                    myTurn = isMyTurn;
+                    if(myTurn) {
+                        status.text(message || 'It\'s your move!');
+                        $('.game-cell:not(.game-cell-taken)')
+                                .addClass('game-cell-selectable');
+                    } else {
+                        status.text(message ||'Waiting on your opponent to move.');
+                        $('.game-cell-selectable')
+                                .removeClass('game-cell-selectable');
+                    }
+                };
+                move = function(row, column) {
+                    if(!myTurn) {
+                        modalErrorBody.text('It is not your turn yet!');
+                        modalError.modal('show');
+                        return;
+                    }
+                    if(server != null) {
+                        server.send(JSON.stringify({ row: row, column: column }));
+                        $('#r' + row + 'c' + column).unbind('click')
+                                .removeClass('game-cell-selectable')
+                                .addClass('game-cell-player game-cell-taken');
+                        toggleTurn(false);
+                    } else {
+                        modalErrorBody.text('Not connected to came server.');
+                        modalError.modal('show');
+                    }
+                };
+            });
+        </script>
+    </body>
 </html>
