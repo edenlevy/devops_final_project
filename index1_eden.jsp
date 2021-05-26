@@ -1,10 +1,7 @@
 <html> 
-<head>
-    
-    <title>A comment Test</title>
-</head>
-<body>
-    <p>Today's date: <%= (new java.until.date()).toLocaleString()%></p>
-
-</body>
-</html>
+   <head><title>A Comment Test</title></head> 
+   
+   <body>
+      <p>Today's date: <%= (new java.util.Date()).toLocaleString()%></p>
+   </body> 
+</html> 
